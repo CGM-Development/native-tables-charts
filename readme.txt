@@ -3,7 +3,7 @@ Contributors: cgm
 Tags: gutenberg, tables, charts, data, responsive, benchmark
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 3.2.0
+Stable tag: 3.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -184,6 +184,12 @@ Version 1.0 limits datasets to 10,000 rows and 40 columns. The Gutenberg data gr
 Not by default. Tables & Charts > Settings contains an explicit option to delete plugin data on uninstall. Keep it disabled on production unless you intentionally want all plugin data removed.
 
 == Changelog ==
+
+= 3.2.1 =
+* Reworked the Data Library with responsive mobile cards, labeled search, clearer empty states, and organized dataset, source, and delete actions.
+* Added preset swatches, actionable empty states, clearer import and migration guidance, and grouped settings with per-group bulk controls.
+* Replaced editor naming prompts with accessible dialogs and improved grid labels, delete targets, chart search, target mapping, and import recovery.
+* Added automatic cache busting for admin stylesheet changes.
 
 = 3.2.0 =
 * Added sub-heading rows so tables can be split into named sections for spec sheets and other structured layouts.

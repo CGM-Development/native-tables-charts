@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Native Tables & Charts
  * Description: Gutenberg-native responsive tables, charts, reusable datasets, presets, and League Table migration.
- * Version: 3.2.0
+ * Version: 3.2.1
  * Requires at least: 6.6
  * Requires PHP: 8.1
  * Author: CGMagazine
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'NTC_VERSION', '3.2.0' );
+define( 'NTC_VERSION', '3.2.1' );
 define( 'NTC_FILE', __FILE__ );
 define( 'NTC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'NTC_URL', plugin_dir_url( __FILE__ ) );

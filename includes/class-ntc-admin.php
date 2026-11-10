@@ -13,7 +13,7 @@ final class NTC_Admin {
 		add_menu_page( __( 'Data Tables & Charts', 'native-tables-charts' ), __( 'Tables & Charts', 'native-tables-charts' ), 'ntc_edit_datasets', 'ntc-data', array( $this, 'library_page' ), 'dashicons-chart-bar', 58 );
 		add_submenu_page( 'ntc-data', __( 'Data Library', 'native-tables-charts' ), __( 'Data Library', 'native-tables-charts' ), 'ntc_edit_datasets', 'ntc-data', array( $this, 'library_page' ) );
 		add_submenu_page( 'ntc-data', __( 'Style Presets', 'native-tables-charts' ), __( 'Style Presets', 'native-tables-charts' ), 'ntc_manage_presets', 'ntc-presets', array( $this, 'presets_page' ) );
-		add_submenu_page( 'ntc-data', __( 'Import & Export', 'native-tables-charts' ), __( 'Tools', 'native-tables-charts' ), 'ntc_export', 'ntc-tools', array( $this, 'tools_page' ) );
+		add_submenu_page( 'ntc-data', __( 'Import & Export', 'native-tables-charts' ), __( 'Import & Export', 'native-tables-charts' ), 'ntc_export', 'ntc-tools', array( $this, 'tools_page' ) );
 		add_submenu_page( 'ntc-data', __( 'League Table Migration', 'native-tables-charts' ), __( 'Migration', 'native-tables-charts' ), 'ntc_migrate', 'ntc-migration', array( $this, 'migration_page' ) );
 		add_submenu_page( 'ntc-data', __( 'Settings', 'native-tables-charts' ), __( 'Settings', 'native-tables-charts' ), 'ntc_manage_settings', 'ntc-settings', array( $this, 'settings_page' ) );
 	}
@@ -22,7 +22,8 @@ final class NTC_Admin {
 		if ( ! str_contains( $hook, 'ntc-' ) ) {
 			return;
 		}
-		wp_enqueue_style( 'ntc-admin', NTC_URL . 'assets/css/admin.css', array(), NTC_VERSION );
+		$version = NTC_VERSION . '.' . filemtime( NTC_DIR . 'assets/css/admin.css' );
+		wp_enqueue_style( 'ntc-admin', NTC_URL . 'assets/css/admin.css', array(), $version );
 	}
 
 	public function migration_detect_ajax(): void {
@@ -466,27 +467,30 @@ final class NTC_Admin {
 			$view_counts[ (int) $v['dataset_id'] ][] = $v;
 		}
 		?>
-		<div class="wrap ntc-admin"><h1><?php esc_html_e( 'Data Library', 'native-tables-charts' ); ?></h1><p><?php esc_html_e( 'Reusable datasets power synced tables and charts. Create inline data directly in Gutenberg, or save it here when you want the same data used across multiple posts.', 'native-tables-charts' ); ?></p>
+		<div class="wrap ntc-admin"><h1><?php esc_html_e( 'Data Library', 'native-tables-charts' ); ?></h1><p><?php esc_html_e( 'Reusable datasets keep tables and charts in sync across posts. Add a Table or Chart block in Gutenberg, then choose “Save as reusable dataset” from its More menu.', 'native-tables-charts' ); ?></p>
 		<?php
 		if ( isset( $_GET['source'] ) ) :
 			$source_result = get_transient( 'ntc_tools_result_' . get_current_user_id() );if ( is_array( $source_result ) ) :
 				?>
-			<pre class="ntc-result"><?php echo esc_html( wp_json_encode( $source_result, JSON_PRETTY_PRINT ) ); ?></pre>
+			<div class="notice notice-info inline"><p><strong><?php esc_html_e( 'Source update completed', 'native-tables-charts' ); ?></strong></p></div>
+			<details class="ntc-technical-details"><summary><?php esc_html_e( 'Technical details', 'native-tables-charts' ); ?></summary><pre class="ntc-result"><?php echo esc_html( wp_json_encode( $source_result, JSON_PRETTY_PRINT ) ); ?></pre></details>
 				<?php
 		endif;
 endif;
-		?>
-		<form method="get" class="ntc-search"><input type="hidden" name="page" value="ntc-data"><input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Search datasets…', 'native-tables-charts' ); ?>"><button class="button"><?php esc_html_e( 'Search', 'native-tables-charts' ); ?></button></form>
-		<table class="widefat striped ntc-list"><thead><tr><th><?php esc_html_e( 'Dataset', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Rows', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Views', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Posts', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Updated', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Actions', 'native-tables-charts' ); ?></th></tr></thead><tbody>
+		if ( $datasets || '' !== $search ) :
+			?>
+		<form method="get" class="ntc-search" role="search"><input type="hidden" name="page" value="ntc-data"><label class="screen-reader-text" for="ntc-dataset-search"><?php esc_html_e( 'Search datasets', 'native-tables-charts' ); ?></label><input id="ntc-dataset-search" type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php esc_attr_e( 'Search by dataset name…', 'native-tables-charts' ); ?>"><button class="button"><?php esc_html_e( 'Search', 'native-tables-charts' ); ?></button><?php if ( '' !== $search ) : ?><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ntc-data' ) ); ?>"><?php esc_html_e( 'Clear', 'native-tables-charts' ); ?></a><?php endif; ?></form>
+		<?php endif; ?>
+		<table class="widefat striped ntc-list ntc-dataset-list"><thead><tr><th><?php esc_html_e( 'Dataset', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Rows', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Views', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Posts', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Updated', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Actions', 'native-tables-charts' ); ?></th></tr></thead><tbody>
 		<?php
 		if ( ! $datasets ) :
 			?>
-			<tr><td colspan="6"><?php esc_html_e( 'No reusable datasets yet. Add a Table or Chart block in Gutenberg and choose “Save as reusable dataset.”', 'native-tables-charts' ); ?></td></tr><?php endif; ?>
+			<tr class="ntc-empty-row"><td colspan="6"><div class="ntc-empty-state"><h2><?php echo esc_html( '' !== $search ? __( 'No datasets match your search', 'native-tables-charts' ) : __( 'No reusable datasets yet', 'native-tables-charts' ) ); ?></h2><p><?php echo esc_html( '' !== $search ? __( 'Try a different name or clear the search to see every dataset.', 'native-tables-charts' ) : __( 'Create a table or chart in a post, then save its data as reusable from the block’s More menu.', 'native-tables-charts' ) ); ?></p><?php if ( '' !== $search ) : ?><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ntc-data' ) ); ?>"><?php esc_html_e( 'Clear search', 'native-tables-charts' ); ?></a><?php else : ?><a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php' ) ); ?>"><?php esc_html_e( 'Add a table or chart in a post', 'native-tables-charts' ); ?></a><?php endif; ?></div></td></tr><?php endif; ?>
 		<?php
 		foreach ( $datasets as $d ) :
 			$id = (int) $d['id'];
 			?>
-			<tr><td><strong><?php echo esc_html( $d['name'] ); ?></strong>
+			<tr><td data-label="<?php esc_attr_e( 'Dataset', 'native-tables-charts' ); ?>"><strong class="ntc-dataset-name"><?php echo esc_html( $d['name'] ); ?></strong>
 			<?php
 			if ( $d['description'] ) :
 				?>
@@ -506,7 +510,7 @@ endif;
 			<?php
 			if ( 'posts' === ( $d['source_mode'] ?? '' ) ) :
 				?>
-	<span class="ntc-source-badge"><?php esc_html_e( 'Posts', 'native-tables-charts' ); ?></span><?php endif; ?></td><td><?php echo esc_html( $d['row_count'] ); ?></td><td><?php echo esc_html( $d['view_count'] ); ?>
+	<span class="ntc-source-badge"><?php esc_html_e( 'Posts', 'native-tables-charts' ); ?></span><?php endif; ?></td><td data-label="<?php esc_attr_e( 'Rows', 'native-tables-charts' ); ?>"><?php echo esc_html( $d['row_count'] ); ?></td><td data-label="<?php esc_attr_e( 'Views', 'native-tables-charts' ); ?>"><?php echo esc_html( $d['view_count'] ); ?>
 			<?php
 			if ( ! empty( $view_counts[ $id ] ) ) :
 				?>
@@ -514,7 +518,7 @@ endif;
 				<?php
 				foreach ( $view_counts[ $id ] as $v ) :
 					?>
-	<span><?php echo esc_html( ucfirst( $v['type'] ) . ': ' . $v['name'] ); ?></span><?php endforeach; ?></div><?php endif; ?></td><td>
+	<span><?php echo esc_html( ucfirst( $v['type'] ) . ': ' . $v['name'] ); ?></span><?php endforeach; ?></div><?php endif; ?></td><td data-label="<?php esc_attr_e( 'Posts', 'native-tables-charts' ); ?>">
 			<?php
 			$u = $usage[ $id ] ?? array(
 				'count' => 0,
@@ -526,7 +530,7 @@ endif;
 				<?php
 				foreach ( $u['posts'] as $post ) :
 					?>
-	<a href="<?php echo esc_url( get_edit_post_link( $post['id'] ) ); ?>"><?php echo esc_html( $post['title'] ); ?></a><?php endforeach; ?></div><?php endif; ?></td><td><?php echo esc_html( get_date_from_gmt( $d['updated_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?></td><td><a class="button" href="
+	<a href="<?php echo esc_url( get_edit_post_link( $post['id'] ) ); ?>"><?php echo esc_html( $post['title'] ); ?></a><?php endforeach; ?></div><?php endif; ?></td><td data-label="<?php esc_attr_e( 'Updated', 'native-tables-charts' ); ?>"><?php echo esc_html( get_date_from_gmt( $d['updated_at'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ); ?></td><td data-label="<?php esc_attr_e( 'Actions', 'native-tables-charts' ); ?>"><div class="ntc-row-actions"><a class="button" href="
 			<?php
 			echo esc_url(
 				add_query_arg(
@@ -538,17 +542,15 @@ endif;
 				)
 			);
 			?>
-"><?php esc_html_e( 'Data JSON', 'native-tables-charts' ); ?></a> <form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="export_dataset_bundle"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button"><?php esc_html_e( 'Full Bundle', 'native-tables-charts' ); ?></button></form> <form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="duplicate_dataset"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button"><?php esc_html_e( 'Duplicate', 'native-tables-charts' ); ?></button></form>
-			<?php
-			if ( current_user_can( 'manage_options' ) ) :
-				?>
-<form method="post" class="ntc-inline-form ntc-source-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="update_source"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><input type="url" name="source_url" value="<?php echo esc_attr( $d['source_url'] ?? '' ); ?>" placeholder="<?php esc_attr_e( 'CSV/TSV source URL…', 'native-tables-charts' ); ?>" class="ntc-source-input"><button class="button"><?php esc_html_e( 'Save URL', 'native-tables-charts' ); ?></button></form> <form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="refresh_source"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button" <?php disabled( empty( $d['source_url'] ?? '' ) ); ?>><?php esc_html_e( 'Refresh now', 'native-tables-charts' ); ?></button></form> <?php endif; ?>
-			<?php
-			if ( current_user_can( 'ntc_import' ) ) :
-				$post_cfg = json_decode( (string) ( $d['source_config'] ?? '' ), true );
-				$post_cfg = is_array( $post_cfg ) ? $post_cfg : array();
-				?>
-<form method="post" class="ntc-inline-form ntc-source-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="update_post_source"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><select name="source_mode"><option value="" <?php selected( '' === ( $d['source_mode'] ?? '' ) ); ?>><?php esc_html_e( 'None', 'native-tables-charts' ); ?></option><option value="posts" <?php selected( 'posts' === ( $d['source_mode'] ?? '' ) ); ?>><?php esc_html_e( 'Posts', 'native-tables-charts' ); ?></option></select><input type="text" name="post_type" value="<?php echo esc_attr( $post_cfg['post_type'] ?? 'post' ); ?>" placeholder="<?php esc_attr_e( 'Post type…', 'native-tables-charts' ); ?>"><input type="text" name="meta_label" value="<?php echo esc_attr( $post_cfg['meta_label'] ?? '' ); ?>" placeholder="<?php esc_attr_e( 'Label meta key…', 'native-tables-charts' ); ?>"><input type="text" name="meta_value" value="<?php echo esc_attr( implode( ',', (array) ( $post_cfg['meta_value'] ?? array() ) ) ); ?>" placeholder="<?php esc_attr_e( 'Value meta keys (CSV)…', 'native-tables-charts' ); ?>"><button class="button"><?php esc_html_e( 'Save Post Source', 'native-tables-charts' ); ?></button></form> <?php endif; ?> <form method="post" class="ntc-inline-form" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this dataset and its synced views?', 'native-tables-charts' ) ); ?>')"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="delete_dataset"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button button-link-delete"><?php esc_html_e( 'Delete', 'native-tables-charts' ); ?></button></form></td></tr><?php endforeach; ?>
+"><?php esc_html_e( 'Export data', 'native-tables-charts' ); ?></a><form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="duplicate_dataset"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button"><?php esc_html_e( 'Duplicate', 'native-tables-charts' ); ?></button></form></div>
+			<details class="ntc-row-more"><summary class="button"><?php esc_html_e( 'More actions', 'native-tables-charts' ); ?></summary><div class="ntc-row-more-content">
+			<section class="ntc-action-group"><h3><?php esc_html_e( 'Portable backup', 'native-tables-charts' ); ?></h3><p><?php esc_html_e( 'Includes this dataset, its synced views, and configuration.', 'native-tables-charts' ); ?></p><form method="post"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="export_dataset_bundle"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button"><?php esc_html_e( 'Download full backup', 'native-tables-charts' ); ?></button></form></section>
+			<?php if ( current_user_can( 'manage_options' ) ) : ?>
+			<section class="ntc-action-group"><h3><?php esc_html_e( 'Remote CSV or TSV source', 'native-tables-charts' ); ?></h3><p><?php esc_html_e( 'Use a publicly reachable CSV or TSV URL to refresh this dataset.', 'native-tables-charts' ); ?></p><form method="post" class="ntc-source-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="update_source"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><label for="ntc-source-url-<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Source URL', 'native-tables-charts' ); ?></label><input id="ntc-source-url-<?php echo esc_attr( $id ); ?>" type="url" name="source_url" value="<?php echo esc_attr( $d['source_url'] ?? '' ); ?>" placeholder="https://example.com/data.csv" class="regular-text"><button class="button"><?php esc_html_e( 'Save source URL', 'native-tables-charts' ); ?></button></form><form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="refresh_source"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button" <?php disabled( empty( $d['source_url'] ?? '' ) ); ?>><?php esc_html_e( 'Refresh data now', 'native-tables-charts' ); ?></button></form></section><?php endif; ?>
+			<?php if ( current_user_can( 'ntc_import' ) ) : $post_cfg = json_decode( (string) ( $d['source_config'] ?? '' ), true ); $post_cfg = is_array( $post_cfg ) ? $post_cfg : array(); ?>
+			<section class="ntc-action-group"><h3><?php esc_html_e( 'WordPress posts source', 'native-tables-charts' ); ?></h3><p><?php esc_html_e( 'Build rows from post metadata. Enter meta keys exactly as they appear in WordPress.', 'native-tables-charts' ); ?></p><form method="post" class="ntc-source-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="update_post_source"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><label for="ntc-source-mode-<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Source type', 'native-tables-charts' ); ?></label><select id="ntc-source-mode-<?php echo esc_attr( $id ); ?>" name="source_mode"><option value="" <?php selected( '' === ( $d['source_mode'] ?? '' ) ); ?>><?php esc_html_e( 'None', 'native-tables-charts' ); ?></option><option value="posts" <?php selected( 'posts' === ( $d['source_mode'] ?? '' ) ); ?>><?php esc_html_e( 'WordPress posts', 'native-tables-charts' ); ?></option></select><label for="ntc-post-type-<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Post type', 'native-tables-charts' ); ?></label><input id="ntc-post-type-<?php echo esc_attr( $id ); ?>" type="text" name="post_type" value="<?php echo esc_attr( $post_cfg['post_type'] ?? 'post' ); ?>" placeholder="post"><label for="ntc-meta-label-<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Meta key for row labels', 'native-tables-charts' ); ?></label><input id="ntc-meta-label-<?php echo esc_attr( $id ); ?>" type="text" name="meta_label" value="<?php echo esc_attr( $post_cfg['meta_label'] ?? '' ); ?>" placeholder="product_name"><label for="ntc-meta-value-<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Meta keys for values', 'native-tables-charts' ); ?></label><input id="ntc-meta-value-<?php echo esc_attr( $id ); ?>" type="text" name="meta_value" value="<?php echo esc_attr( implode( ',', (array) ( $post_cfg['meta_value'] ?? array() ) ) ); ?>" placeholder="score, rating" aria-describedby="ntc-meta-value-help-<?php echo esc_attr( $id ); ?>"><span id="ntc-meta-value-help-<?php echo esc_attr( $id ); ?>" class="description"><?php esc_html_e( 'Separate multiple keys with commas.', 'native-tables-charts' ); ?></span><button class="button"><?php esc_html_e( 'Save posts source', 'native-tables-charts' ); ?></button></form></section><?php endif; ?>
+			<section class="ntc-action-group ntc-danger-zone"><h3><?php esc_html_e( 'Delete dataset', 'native-tables-charts' ); ?></h3><p><?php esc_html_e( 'Also deletes its synced views. This cannot be undone.', 'native-tables-charts' ); ?></p><form method="post" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this dataset and its synced views? This cannot be undone.', 'native-tables-charts' ) ); ?>')"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="delete_dataset"><input type="hidden" name="dataset_id" value="<?php echo esc_attr( $id ); ?>"><button class="button button-link-delete"><?php esc_html_e( 'Delete dataset', 'native-tables-charts' ); ?></button></form></section>
+			</div></details></td></tr><?php endforeach; ?>
 		</tbody></table></div>
 		<?php
 	}
@@ -563,25 +565,26 @@ endif;
 		if ( isset( $_GET['import_error'] ) ) :
 			?>
 			<div class="notice notice-error inline"><p><?php esc_html_e( 'The preset could not be imported. Use a Native Tables & Charts preset JSON file.', 'native-tables-charts' ); ?></p></div><?php endif; ?>
-		<form method="post" enctype="multipart/form-data" class="ntc-preset-import"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="import_preset"><label><strong><?php esc_html_e( 'Import style preset', 'native-tables-charts' ); ?></strong> <input type="file" name="preset_file" accept=".json,application/json" required></label> <button class="button"><?php esc_html_e( 'Import Preset', 'native-tables-charts' ); ?></button></form>
+		<form method="post" enctype="multipart/form-data" class="ntc-preset-import"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="import_preset"><div class="ntc-file-field"><label for="ntc-preset-file"><?php esc_html_e( 'Style preset JSON', 'native-tables-charts' ); ?></label><input id="ntc-preset-file" type="file" name="preset_file" accept=".json,application/json" required aria-describedby="ntc-preset-file-help"><p id="ntc-preset-file-help" class="ntc-file-hint"><?php esc_html_e( 'Preset file exported by this plugin. Maximum size: 2 MB.', 'native-tables-charts' ); ?></p></div><button class="button"><?php esc_html_e( 'Import preset', 'native-tables-charts' ); ?></button></form>
 		<div class="ntc-cards"><section><h2><?php esc_html_e( 'Built-in Table Styles', 'native-tables-charts' ); ?></h2>
 		<?php
 		foreach ( $tables as $slug => $settings ) :
 			?>
-			<div class="ntc-preset-row"><strong><?php echo esc_html( ucwords( str_replace( '-', ' ', $slug ) ) ); ?></strong><code><?php echo esc_html( $slug ); ?></code></div><?php endforeach; ?></section><section><h2><?php esc_html_e( 'Built-in Chart Styles', 'native-tables-charts' ); ?></h2>
+			<div class="ntc-preset-row"><div class="ntc-preset-name"><strong><?php echo esc_html( ucwords( str_replace( '-', ' ', $slug ) ) ); ?></strong><code><?php echo esc_html( $slug ); ?></code></div><div class="ntc-preset-swatch ntc-preset-swatch-table" aria-hidden="true" style="background:<?php echo esc_attr( $settings['oddBackground'] ?? '#fff' ); ?>"><span style="background:<?php echo esc_attr( $settings['headerBackground'] ?? '#151922' ); ?>"></span><span style="background:<?php echo esc_attr( $settings['oddBackground'] ?? '#fff' ); ?>"></span><span style="background:<?php echo esc_attr( $settings['evenBackground'] ?? '#f6f7f8' ); ?>"></span><span style="background:<?php echo esc_attr( $settings['oddBackground'] ?? '#fff' ); ?>"></span></div></div><?php endforeach; ?></section><section><h2><?php esc_html_e( 'Built-in Chart Styles', 'native-tables-charts' ); ?></h2>
 			<?php
 			foreach ( $charts as $slug => $settings ) :
 				?>
-			<div class="ntc-preset-row"><strong><?php echo esc_html( ucwords( str_replace( '-', ' ', $slug ) ) ); ?></strong><code><?php echo esc_html( $slug ); ?></code></div><?php endforeach; ?></section></div>
+			<div class="ntc-preset-row"><div class="ntc-preset-name"><strong><?php echo esc_html( ucwords( str_replace( '-', ' ', $slug ) ) ); ?></strong><code><?php echo esc_html( $slug ); ?></code></div><div class="ntc-preset-swatch ntc-preset-swatch-chart" aria-hidden="true" style="background:<?php echo esc_attr( $settings['background'] ?? '#09111b' ); ?>"><span style="width:88%;background:<?php echo esc_attr( $settings['primaryColor'] ?? '#624b8e' ); ?>"></span><span style="width:68%;background:<?php echo esc_attr( $settings['highlightColor'] ?? '#9e2f5f' ); ?>"></span><span style="width:50%;background:<?php echo esc_attr( $settings['secondaryColor'] ?? '#8b73b8' ); ?>"></span></div></div><?php endforeach; ?></section></div>
+		<p class="ntc-inspector-note"><?php esc_html_e( 'Open any Table or Chart block in Gutenberg to apply a style or save a custom preset from its More menu.', 'native-tables-charts' ); ?></p>
 		<h2><?php esc_html_e( 'Custom Presets', 'native-tables-charts' ); ?></h2><table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Name', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Type', 'native-tables-charts' ); ?></th><th><?php esc_html_e( 'Slug', 'native-tables-charts' ); ?></th><th></th></tr></thead><tbody>
 		<?php
 		if ( ! $custom ) :
 			?>
-			<tr><td colspan="4"><?php esc_html_e( 'No custom presets yet.', 'native-tables-charts' ); ?></td></tr><?php endif; ?>
+			<tr><td colspan="4"><div class="ntc-preset-empty"><p><strong><?php esc_html_e( 'No custom presets yet.', 'native-tables-charts' ); ?></strong><br><?php esc_html_e( 'Style a table or chart in the editor, then open its More menu and choose Save style preset.', 'native-tables-charts' ); ?></p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php' ) ); ?>"><?php esc_html_e( 'Open the editor', 'native-tables-charts' ); ?></a></div></td></tr><?php endif; ?>
 			<?php
 			foreach ( $custom as $p ) :
 				?>
-			<tr><td><?php echo esc_html( $p['name'] ); ?></td><td><?php echo esc_html( $p['type'] ); ?></td><td><code><?php echo esc_html( $p['slug'] ); ?></code></td><td><form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="export_preset"><input type="hidden" name="preset_id" value="<?php echo esc_attr( $p['id'] ); ?>"><button class="button"><?php esc_html_e( 'Export', 'native-tables-charts' ); ?></button></form> <form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="delete_preset"><input type="hidden" name="preset_id" value="<?php echo esc_attr( $p['id'] ); ?>"><button class="button button-link-delete"><?php esc_html_e( 'Delete', 'native-tables-charts' ); ?></button></form></td></tr><?php endforeach; ?></tbody></table></div>
+			<tr><td><?php echo esc_html( $p['name'] ); ?></td><td><?php echo esc_html( $p['type'] ); ?></td><td><code><?php echo esc_html( $p['slug'] ); ?></code></td><td><form method="post" class="ntc-inline-form"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="export_preset"><input type="hidden" name="preset_id" value="<?php echo esc_attr( $p['id'] ); ?>"><button class="button"><?php esc_html_e( 'Export', 'native-tables-charts' ); ?></button></form> <form method="post" class="ntc-inline-form" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this custom preset? Existing blocks keep their saved appearance, but the preset cannot be restored.', 'native-tables-charts' ) ); ?>')"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="delete_preset"><input type="hidden" name="preset_id" value="<?php echo esc_attr( $p['id'] ); ?>"><button class="button button-link-delete"><?php esc_html_e( 'Delete', 'native-tables-charts' ); ?></button></form></td></tr><?php endforeach; ?></tbody></table></div>
 		<?php
 	}
 
@@ -590,11 +593,12 @@ endif;
 		?>
 		<div class="wrap ntc-admin"><h1><?php esc_html_e( 'Import & Export', 'native-tables-charts' ); ?></h1><p><?php esc_html_e( 'Create a complete portable backup of reusable datasets, synced table/chart views and custom presets, or import a backup created by this plugin.', 'native-tables-charts' ); ?></p>
 		<div class="ntc-cards"><section><h2><?php esc_html_e( 'Export Complete Backup', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'Exports all reusable datasets and their synced views. Custom presets are included when you have permission to manage presets. Post content is not changed.', 'native-tables-charts' ); ?></p><form method="post"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="export_all_bundle"><button class="button button-primary"><?php esc_html_e( 'Download Complete JSON Backup', 'native-tables-charts' ); ?></button></form></section>
-		<section><h2><?php esc_html_e( 'Import Native Backup', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'Imports complete backups, single-dataset bundles, or raw Native Tables & Charts JSON data exports. Imported items are created as new records; existing datasets are not overwritten.', 'native-tables-charts' ); ?></p><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="import_native_bundle"><input type="file" name="native_bundle" accept=".json,application/json" required><p><button class="button"><?php esc_html_e( 'Import JSON', 'native-tables-charts' ); ?></button></p></form></section></div>
+		<section><h2><?php esc_html_e( 'Import Native Backup', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'Imports complete backups, single-dataset bundles, or raw Native Tables & Charts JSON data exports. Imported items are created as new records; existing datasets are not overwritten.', 'native-tables-charts' ); ?></p><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="import_native_bundle"><div class="ntc-file-field"><label for="ntc-native-bundle"><?php esc_html_e( 'Native Tables & Charts backup', 'native-tables-charts' ); ?></label><input id="ntc-native-bundle" type="file" name="native_bundle" accept=".json,application/json" required aria-describedby="ntc-native-bundle-help"><p id="ntc-native-bundle-help" class="ntc-file-hint"><?php esc_html_e( 'JSON file exported by this plugin. Maximum size: 50 MB.', 'native-tables-charts' ); ?></p></div><p><button class="button"><?php esc_html_e( 'Import backup', 'native-tables-charts' ); ?></button></p></form></section></div>
 		<?php
 		if ( is_array( $result ) ) :
+			$import_success = ! empty( $result['success'] );
 			?>
-			<h2><?php esc_html_e( 'Latest Import Result', 'native-tables-charts' ); ?></h2><pre class="ntc-result"><?php echo esc_html( wp_json_encode( $result, JSON_PRETTY_PRINT ) ); ?></pre><?php endif; ?></div>
+			<div class="ntc-import-result"><div class="notice <?php echo $import_success ? 'notice-success' : 'notice-error'; ?> inline"><p><strong><?php echo esc_html( $import_success ? __( 'Import completed', 'native-tables-charts' ) : __( 'We couldn’t import this file', 'native-tables-charts' ) ); ?></strong></p><p><?php echo esc_html( $import_success ? __( 'The backup was processed. Review the imported datasets in Data Library.', 'native-tables-charts' ) : ( $result['error'] ?? __( 'Check that this is a Native Tables & Charts JSON backup, then try again.', 'native-tables-charts' ) ) ); ?></p><?php if ( $import_success ) : ?><p><a href="<?php echo esc_url( admin_url( 'admin.php?page=ntc-data' ) ); ?>"><?php esc_html_e( 'Open Data Library', 'native-tables-charts' ); ?></a></p><?php endif; ?></div><details class="ntc-technical-details"><summary><?php esc_html_e( 'Technical details', 'native-tables-charts' ); ?></summary><pre class="ntc-result"><?php echo esc_html( wp_json_encode( $result, JSON_PRETTY_PRINT ) ); ?></pre></details></div><?php endif; ?></div>
 		<?php
 	}
 
@@ -633,12 +637,12 @@ endif;
 		$result             = get_transient( 'ntc_migration_result_' . get_current_user_id() );
 		$rollback_progress  = get_transient( 'ntc_rollback_progress_' . get_current_user_id() );
 		?>
-		<div class="wrap ntc-admin"><h1><?php esc_html_e( 'League Table Migration', 'native-tables-charts' ); ?></h1><div class="ntc-callout <?php echo $detect['available'] ? 'is-good' : 'is-neutral'; ?>"><strong><?php echo $detect['available'] ? esc_html__( 'League Table data detected.', 'native-tables-charts' ) : esc_html__( 'No League Table data detected.', 'native-tables-charts' ); ?></strong>
+		<div class="wrap ntc-admin"><h1><?php esc_html_e( 'League Table Migration', 'native-tables-charts' ); ?></h1><div class="ntc-callout <?php echo $detect['available'] ? 'is-good' : 'is-neutral'; ?>"><strong><?php echo $detect['available'] ? esc_html__( 'League Table data detected.', 'native-tables-charts' ) : esc_html__( 'No migration is required.', 'native-tables-charts' ); ?></strong>
 		<?php
 		if ( $detect['available'] ) :
 			?>
 			<?php /* translators: 1: number of tables, 2: number of posts, 3: number of shortcode/block instances. */ ?>
-			<p id="ntc-detection-summary"><?php printf( esc_html__( '%1$d tables, %2$d posts and %3$d shortcode/block instances were found.', 'native-tables-charts' ), $detect['tables'], $detect['posts'], $detect['instances'] ); ?></p><?php endif; ?></div>
+			<p id="ntc-detection-summary"><?php printf( esc_html__( '%1$d tables, %2$d posts and %3$d shortcode/block instances were found.', 'native-tables-charts' ), $detect['tables'], $detect['posts'], $detect['instances'] ); ?></p><?php else : ?><p><?php esc_html_e( 'No League Table data was detected on this site. You can still import an XML backup from another site below.', 'native-tables-charts' ); ?></p><?php endif; ?></div>
 		<?php if ( $detect['available'] && ! $detection_complete ) : ?>
 		<div class="notice notice-info" id="ntc-detection-progress"><p><?php esc_html_e( 'Scanning post content in short, bounded requests. Migration will process only the posts identified here.', 'native-tables-charts' ); ?> <span id="ntc-detection-status"><?php printf( esc_html__( 'Scanned through post ID %1$d of %2$d.', 'native-tables-charts' ), (int) ( $detect['cursor'] ?? 0 ), (int) ( $detect['max_id'] ?? 0 ) ); ?></span></p></div>
 		<script>(function(){var nonce=<?php echo wp_json_encode( wp_create_nonce( 'ntc_migration_detect' ) ); ?>,url=<?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;function next(){var body=new URLSearchParams({action:'ntc_migration_detect',nonce:nonce});fetch(url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:body.toString()}).then(function(response){return response.json();}).then(function(result){if(!result.success)throw new Error();var d=result.data,summary=document.getElementById('ntc-detection-summary'),status=document.getElementById('ntc-detection-status');if(summary)summary.textContent=d.tables+' tables, '+d.posts+' posts and '+d.instances+' shortcode/block instances were found.';if(status)status.textContent='Scanned through post ID '+d.cursor+' of '+d.max_id+'.';if(d.complete){window.location.reload();return;}setTimeout(next,250);}).catch(function(){var status=document.getElementById('ntc-detection-status');if(status)status.textContent=<?php echo wp_json_encode( __( 'Detection paused after a request failed. Reload this page to resume safely.', 'native-tables-charts' ) ); ?>;});}next();})();</script>
@@ -647,7 +651,7 @@ endif;
 		if ( $detect['available'] && $detection_complete ) :
 			?>
 			<div class="ntc-cards"><section><h2><?php esc_html_e( '1. Dry Run', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'Analyze the existing League Table database before changing anything.', 'native-tables-charts' ); ?></p><form method="post"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="migration_dry_run"><button class="button button-secondary"><?php esc_html_e( 'Run Dry-Run Report', 'native-tables-charts' ); ?></button></form></section><section><h2><?php esc_html_e( '2. Migrate', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'Create reusable Native Tables datasets and views. Existing League Table database tables are never deleted.', 'native-tables-charts' ); ?></p><form method="post" id="ntc-migrate-form" onsubmit="return this.elements.batch_id.value!==''||confirm('<?php echo esc_js( __( 'Start the migration now? A backup of every changed post will be kept for rollback.', 'native-tables-charts' ) ); ?>')"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="migration_run"><label><input type="checkbox" name="convert_content" value="1" <?php checked( ! is_array( $migration_progress ) || ! empty( $migration_progress['convert'] ) ); ?>> <?php esc_html_e( 'Replace [lt] shortcodes and dalt/table blocks in post content', 'native-tables-charts' ); ?></label><input type="hidden" name="batch_id" value="<?php echo esc_attr( $migration_progress['batch_id'] ?? '' ); ?>"><input type="hidden" name="offset" value="<?php echo esc_attr( $migration_progress['offset'] ?? '0' ); ?>"><input type="hidden" name="cursor" value="<?php echo esc_attr( $migration_progress['cursor'] ?? '0' ); ?>"><input type="hidden" name="target_offset" value="<?php echo esc_attr( $migration_progress['target_offset'] ?? '0' ); ?>"><input type="hidden" name="table_cursor" value="<?php echo esc_attr( $migration_progress['table_cursor'] ?? '0' ); ?>"><p><button class="button button-primary"><?php esc_html_e( 'Run Migration', 'native-tables-charts' ); ?></button></p></form></section></div><?php endif; ?>
-		<div class="ntc-cards"><section><h2><?php esc_html_e( 'Import League Table XML', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'If you exported tables from League Table on another site, import its XML backup directly into Native Tables & Charts. This creates reusable datasets and synced table views without requiring the old plugin to be active.', 'native-tables-charts' ); ?></p><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="migration_xml_import"><input type="file" name="league_xml" accept=".xml,text/xml,application/xml" required><p><button class="button"><?php esc_html_e( 'Import XML', 'native-tables-charts' ); ?></button></p></form></section></div>
+		<div class="ntc-cards"><section><h2><?php esc_html_e( 'Import League Table XML', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'If you exported tables from League Table on another site, import its XML backup directly into Native Tables & Charts. This creates reusable datasets and synced table views without requiring the old plugin to be active.', 'native-tables-charts' ); ?></p><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="migration_xml_import"><div class="ntc-file-field"><label for="ntc-league-xml"><?php esc_html_e( 'League Table XML backup', 'native-tables-charts' ); ?></label><input id="ntc-league-xml" type="file" name="league_xml" accept=".xml,text/xml,application/xml" required aria-describedby="ntc-league-xml-help"><p id="ntc-league-xml-help" class="ntc-file-hint"><?php esc_html_e( 'XML file exported by League Table. Maximum size: 20 MB.', 'native-tables-charts' ); ?></p></div><p><button class="button"><?php esc_html_e( 'Import XML backup', 'native-tables-charts' ); ?></button></p></form></section></div>
 		<?php
 		if ( is_array( $report ) ) :
 			?>
@@ -733,19 +737,58 @@ endif;
 			'rowSpan'          => __( 'Row span / merging', 'native-tables-charts' ),
 			'columnSpan'       => __( 'Column span / merging', 'native-tables-charts' ),
 		);
+		$groups = array(
+			'appearance' => array(
+				'title'       => __( 'Appearance', 'native-tables-charts' ),
+				'description' => __( 'Control text, background colour, alignment and font styling.', 'native-tables-charts' ),
+				'keys'        => array( 'textColor', 'backgroundColor', 'alignment', 'fontWeight', 'fontStyle' ),
+			),
+			'links'      => array(
+				'title'       => __( 'Links', 'native-tables-charts' ),
+				'description' => __( 'Add links to cells and control their colour and opening behaviour.', 'native-tables-charts' ),
+				'keys'        => array( 'link', 'linkColor', 'openLinkNewTab' ),
+			),
+			'images'     => array(
+				'title'       => __( 'Images', 'native-tables-charts' ),
+				'description' => __( 'Place images on either side of cell content, with optional links.', 'native-tables-charts' ),
+				'keys'        => array( 'imageLeft', 'imageLeftLink', 'imageLeftNewTab', 'imageRight', 'imageRightLink', 'imageRightNewTab' ),
+			),
+			'formulas'   => array(
+				'title'       => __( 'Formulas and HTML', 'native-tables-charts' ),
+				'description' => __( 'Enable calculated content and sanitized custom HTML.', 'native-tables-charts' ),
+				'keys'        => array( 'formula', 'formulaData', 'html' ),
+			),
+			'merging'    => array(
+				'title'       => __( 'Merging', 'native-tables-charts' ),
+				'description' => __( 'Merge cells across rows or columns.', 'native-tables-charts' ),
+				'keys'        => array( 'rowSpan', 'columnSpan' ),
+			),
+		);
 		?>
 		<div class="wrap ntc-admin"><h1><?php esc_html_e( 'Native Tables & Charts Settings', 'native-tables-charts' ); ?></h1>
 		<?php
 		if ( isset( $_GET['saved'] ) ) :
 			?>
 			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'native-tables-charts' ); ?></p></div><?php endif; ?><form method="post"><?php wp_nonce_field( 'ntc_admin_action' ); ?><input type="hidden" name="ntc_action" value="save_settings">
-		<h2><?php esc_html_e( 'Editor Cell Properties', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'Choose which advanced cell controls are shown to editors. Existing saved cell properties continue to render even when a control is hidden.', 'native-tables-charts' ); ?></p><div class="ntc-setting-grid">
-		<?php
-		foreach ( $labels as $key => $label ) :
-			?>
-			<label><input type="checkbox" name="cell_features[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $saved[ $key ] ) ); ?>> <?php echo esc_html( $label ); ?></label><?php endforeach; ?></div>
+		<h2><?php esc_html_e( 'Editor Cell Properties', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( 'Choose which advanced cell controls are shown to editors. Existing saved cell properties continue to render even when a control is hidden.', 'native-tables-charts' ); ?></p>
+		<div id="ntc-cell-feature-settings">
+		<?php foreach ( $groups as $group_id => $group ) : ?>
+			<section class="ntc-setting-group" aria-labelledby="ntc-setting-title-<?php echo esc_attr( $group_id ); ?>">
+				<h3 id="ntc-setting-title-<?php echo esc_attr( $group_id ); ?>"><?php echo esc_html( $group['title'] ); ?></h3>
+				<p><?php echo esc_html( $group['description'] ); ?></p>
+				<div class="ntc-setting-actions"><button type="button" class="button" data-ntc-setting-toggle="1" aria-controls="ntc-setting-grid-<?php echo esc_attr( $group_id ); ?>"><?php esc_html_e( 'Enable all', 'native-tables-charts' ); ?></button><button type="button" class="button" data-ntc-setting-toggle="0" aria-controls="ntc-setting-grid-<?php echo esc_attr( $group_id ); ?>"><?php esc_html_e( 'Disable all', 'native-tables-charts' ); ?></button></div>
+				<div class="ntc-setting-grid" id="ntc-setting-grid-<?php echo esc_attr( $group_id ); ?>">
+				<?php foreach ( $group['keys'] as $key ) : ?>
+					<label><input type="checkbox" name="cell_features[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $saved[ $key ] ) ); ?>> <?php echo esc_html( $labels[ $key ] ); ?></label>
+				<?php endforeach; ?>
+				</div>
+			</section>
+		<?php endforeach; ?>
+		</div>
 		<h2><?php esc_html_e( 'Custom HTML Safety', 'native-tables-charts' ); ?></h2><p><?php esc_html_e( "Custom HTML cells are always sanitized. Leave these fields blank to use WordPress' normal allowed post HTML and protocols, or enter a League Table-style restricted allow-list.", 'native-tables-charts' ); ?></p><table class="form-table"><tr><th scope="row"><label for="ntc-kses-tags"><?php esc_html_e( 'Allowed HTML tags', 'native-tables-charts' ); ?></label></th><td><input id="ntc-kses-tags" class="regular-text" type="text" name="kses_allowed_html_tags" value="<?php echo esc_attr( (string) get_option( 'ntc_kses_allowed_html_tags', '' ) ); ?>" placeholder="a[href][title], br, em, strong"><p class="description"><?php esc_html_e( 'Example: a[href][title], br, em, strong', 'native-tables-charts' ); ?></p></td></tr><tr><th scope="row"><label for="ntc-kses-protocols"><?php esc_html_e( 'Allowed link protocols', 'native-tables-charts' ); ?></label></th><td><input id="ntc-kses-protocols" class="regular-text" type="text" name="kses_allowed_protocols" value="<?php echo esc_attr( (string) get_option( 'ntc_kses_allowed_protocols', '' ) ); ?>" placeholder="http, https, mailto"></td></tr></table>
-		<h2><?php esc_html_e( 'Uninstall', 'native-tables-charts' ); ?></h2><table class="form-table"><tr><th scope="row"><?php esc_html_e( 'Uninstall behaviour', 'native-tables-charts' ); ?></th><td><label><input type="checkbox" name="delete_data" value="1" <?php checked( (bool) get_option( 'ntc_delete_data_on_uninstall', false ) ); ?>> <?php esc_html_e( 'Delete Native Tables & Charts datasets, views, presets and migration backups when the plugin is uninstalled. Leave this off on production sites unless you intentionally want to remove all plugin data.', 'native-tables-charts' ); ?></label></td></tr></table><?php submit_button(); ?></form></div>
+		<h2><?php esc_html_e( 'Uninstall', 'native-tables-charts' ); ?></h2><table class="form-table"><tr><th scope="row"><?php esc_html_e( 'Uninstall behaviour', 'native-tables-charts' ); ?></th><td><label><input type="checkbox" name="delete_data" value="1" <?php checked( (bool) get_option( 'ntc_delete_data_on_uninstall', false ) ); ?>> <?php esc_html_e( 'Delete Native Tables & Charts datasets, views, presets and migration backups when the plugin is uninstalled. Leave this off on production sites unless you intentionally want to remove all plugin data.', 'native-tables-charts' ); ?></label></td></tr></table><?php submit_button(); ?>
+		<script>(function(){var container=document.getElementById('ntc-cell-feature-settings');if(!container){return;}container.addEventListener('click',function(event){var button=event.target.closest('[data-ntc-setting-toggle]');if(!button||!container.contains(button)){return;}var checked=button.getAttribute('data-ntc-setting-toggle')==='1';button.closest('.ntc-setting-group').querySelectorAll('input[type="checkbox"]').forEach(function(input){input.checked=checked;});});})();</script>
+		</form></div>
 		<?php
 	}
 }
