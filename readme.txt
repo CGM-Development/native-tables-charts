@@ -3,7 +3,7 @@ Contributors: cgm
 Tags: gutenberg, tables, charts, data, responsive, benchmark
 Requires at least: 6.6
 Requires PHP: 8.1
-Stable tag: 3.2.1
+Stable tag: 3.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -184,6 +184,12 @@ Version 1.0 limits datasets to 10,000 rows and 40 columns. The Gutenberg data gr
 Not by default. Tables & Charts > Settings contains an explicit option to delete plugin data on uninstall. Keep it disabled on production unless you intentionally want all plugin data removed.
 
 == Changelog ==
+
+= 3.2.2 =
+* Added mouse-driven table column resizing with live header and cell feedback, fixed-layout persistence, and larger coarse-pointer targets.
+* Added keyboard column resizing with arrow keys, Shift for larger steps, and Home to restore the default width.
+* Added a dedicated Column widths dialog with per-column units, validation, individual resets, Reset all, and table-layout controls.
+* Synchronized dragged widths with the Selected Column sidebar and server-rendered table preview.
 
 = 3.2.1 =
 * Reworked the Data Library with responsive mobile cards, labeled search, clearer empty states, and organized dataset, source, and delete actions.

@@ -262,6 +262,26 @@ function StyleControls({type,attributes,setAttributes,customPresets}){
 function StyleInspector(props){return h(InspectorControls,{group:'styles'},h(PanelBody,{title:props.type==='chart'?__('Chart appearance','native-tables-charts'):__('Table appearance','native-tables-charts'),initialOpen:true},h(StyleControls,props)));}
 function QuickStyleModal(props){return h(Modal,{title:props.type==='chart'?__('Chart Style','native-tables-charts'):__('Table Style','native-tables-charts'),onRequestClose:props.onClose,className:'ntc-style-modal'},h('p',{className:'ntc-inspector-note'},__('These settings update the block preview immediately. Full layout, responsive and advanced controls remain in the block sidebar.','native-tables-charts')),h('div',{className:'ntc-style-form-grid'},h(StyleControls,props)),h('div',{className:'ntc-inline-actions'},h(Button,{variant:'primary',onClick:props.onClose},__('Done','native-tables-charts'))));}
 
+const validColumnWidth=value=>value.trim()===''||/^\d+(\.\d+)?(px|em|rem|%|vw|ch|ex)?$/.test(value.trim());
+function ColumnWidthsModal({columns,attributes,setAttributes,onClose}){
+ const config=attributes.config||{};const widths=config.columnWidths||{};
+ const update=next=>setAttributes({config:Object.assign({},config,next)});
+ const setWidth=(index,value)=>{const next=Object.assign({},widths);const clean=value.trim();if(clean==='')delete next[index];else next[index]=clean;update({columnWidths:next});};
+ const customized=Object.values(widths).filter(value=>String(value??'').trim()!=='').length;
+ return h(Modal,{title:__('Column widths','native-tables-charts'),onRequestClose:onClose,className:'ntc-column-widths-modal'},
+  h('p',{className:'ntc-modal-intro'},__('Leave a column blank for automatic sizing, or enter a width such as 240px, 25%, or 12rem. A number without a unit is treated as pixels.','native-tables-charts')),
+  h(SelectControl,{label:__('Table layout','native-tables-charts'),help:__('Use Fixed columns for exact widths. Automatic lets the browser adjust columns to fit their content.','native-tables-charts'),value:config.tableLayout||'auto',options:[{label:__('Automatic','native-tables-charts'),value:'auto'},{label:__('Fixed columns','native-tables-charts'),value:'fixed'}],onChange:value=>update({tableLayout:value})}),
+  h('div',{className:'ntc-column-width-list'},columns.map((column,index)=>{
+   const label=column.label||sprintf(__('Column %d','native-tables-charts'),index+1);const value=String(widths[index]??'');const valid=validColumnWidth(value);
+   return h('div',{className:'ntc-column-width-row',key:column.id||index},
+    h(TextControl,{label:(index+1)+'. '+label,value,placeholder:__('Automatic','native-tables-charts'),className:'ntc-column-width-control'+(valid?'':' is-invalid'),'aria-invalid':valid?'false':'true',help:valid?'':__('Enter a number with an optional px, %, em, rem, vw, ch, or ex unit.','native-tables-charts'),onChange:next=>setWidth(index,next)}),
+    h(Button,{variant:'tertiary',disabled:value==='',onClick:()=>setWidth(index,''),'aria-label':sprintf(__('Reset width for %s','native-tables-charts'),label)},__('Reset','native-tables-charts'))
+   );
+  })),
+  h('div',{className:'ntc-column-width-footer'},h('span',{role:'status'},customized+' / '+columns.length+' '+__('custom widths','native-tables-charts')),h('div',{className:'ntc-inline-actions'},h(Button,{variant:'tertiary',disabled:!customized,onClick:()=>update({columnWidths:{}})},__('Reset all','native-tables-charts')),h(Button,{variant:'primary',onClick:onClose},__('Done','native-tables-charts'))))
+ );
+}
+
 function parseDelimited(text,delimiter,headers){
  const matrix=[];let row=[],cur='',quoted=false;
  const pushField=()=>{row.push(cur);cur='';};
@@ -394,8 +414,8 @@ function gridKeyTarget(key,shiftKey,selectionStart,selectionEnd,valueLength,ri,c
  return {r:clamp(ri+dr,0,rowCount-1),c:clamp(ci+dc,0,colCount-1),shift:!!shiftKey};
 }
 
-function VirtualGrid({columns,rows,onColumns,onRows,selected,onSelect,onDeleteRow,onDeleteCol,focusValues,onToggleFocus,onFocusLabelChange,labelColumn,allowMultipleFocus,rowHeadings}){
- const scroller=useRef(null);const [scrollTop,setScrollTop]=useState(0);const rowH=34;const viewH=370;const overscan=8;
+function VirtualGrid({columns,rows,onColumns,onRows,selected,onSelect,onDeleteRow,onDeleteCol,focusValues,onToggleFocus,onFocusLabelChange,labelColumn,allowMultipleFocus,rowHeadings,columnWidths,onResizeColumn}){
+ const scroller=useRef(null);const [scrollTop,setScrollTop]=useState(0);const [resizePreview,setResizePreview]=useState(null);const resizeState=useRef(null);const resizeCleanup=useRef(null);const rowH=34;const viewH=370;const overscan=8;
  const start=clamp(Math.floor(scrollTop/rowH)-overscan,0,Math.max(0,rows.length-1));const count=Math.ceil(viewH/rowH)+overscan*2;const end=Math.min(rows.length,start+count);
  const updateCell=(ri,ci,value)=>{const next=rows.slice();const row=(next[ri]||[]).slice();while(row.length<columns.length)row.push('');const previous=row[ci]??'';row[ci]=value;next[ri]=row;onRows(next,ri);if(onFocusLabelChange&&ci===labelColumn&&String(previous)!==String(value))onFocusLabelChange(String(previous),String(value));};
  const updateCol=(ci,key,value)=>{const next=columns.map((c,i)=>i===ci?Object.assign({},c,{[key]:value}):c);onColumns(next);};
@@ -403,10 +423,31 @@ function VirtualGrid({columns,rows,onColumns,onRows,selected,onSelect,onDeleteRo
  const inSelection=(ri,ci)=>{if(!selected||selected.r<0)return false;const r1=Math.min(selected.r,selected.r2??selected.r),r2=Math.max(selected.r,selected.r2??selected.r),c1=Math.min(selected.c,selected.c2??selected.c),c2=Math.max(selected.c,selected.c2??selected.c);return ri>=r1&&ri<=r2&&ci>=c1&&ci<=c2;};
  const select=(e,r,c)=>onSelect({r,c,shift:!!(e&&e.shiftKey)});
  const keyNav=(e,ri,ci)=>{const input=e.currentTarget;const target=gridKeyTarget(e.key,!!e.shiftKey,Number(input.selectionStart||0),Number(input.selectionEnd||0),String(input.value||'').length,ri,ci,rows.length,columns.length);if(!target)return;e.preventDefault();onSelect(target);setTimeout(()=>{const el=scroller.current&&scroller.current.querySelector('[data-r="'+target.r+'"][data-c="'+target.c+'"]');if(el){el.focus();el.select();}},0);};
+ const configuredWidth=ci=>{const raw=String((columnWidths||{})[ci]??'').trim();return /^\d+(\.\d+)?(px)?$/.test(raw)?clamp(parseFloat(raw),60,1000):160;};
+ const trackWidth=ci=>resizePreview&&resizePreview.index===ci?resizePreview.width:configuredWidth(ci);
+ const trackStyle=ci=>({width:trackWidth(ci)+'px',minWidth:trackWidth(ci)+'px'});
+ const resizeColumn=(ci,width)=>{if(onResizeColumn)onResizeColumn(ci,Math.round(clamp(width,60,1000)));};
+ const resizeKey=(e,ci)=>{if(!['ArrowLeft','ArrowRight','Home'].includes(e.key))return;e.preventDefault();e.stopPropagation();select(e,-1,ci);const step=e.shiftKey?50:10;resizeColumn(ci,e.key==='Home'?160:trackWidth(ci)+(e.key==='ArrowRight'?step:-step));};
+ const beginResize=(e,ci)=>{
+  if(!onResizeColumn||e.button!==0)return;e.preventDefault();e.stopPropagation();select(e,-1,ci);if(resizeCleanup.current)resizeCleanup.current();
+  const handle=e.currentTarget;const doc=handle.ownerDocument;const win=doc.defaultView;const startWidth=handle.closest('.ntc-grid-colhead').getBoundingClientRect().width;const drag={index:ci,startX:e.clientX,width:startWidth,moved:false};resizeState.current=drag;setResizePreview({index:ci,width:startWidth});
+  const oldCursor=doc.body.style.cursor;const oldSelect=doc.body.style.userSelect;doc.body.style.cursor='col-resize';doc.body.style.userSelect='none';
+  const end=commit=>{win.removeEventListener('pointermove',move);win.removeEventListener('pointerup',finish);win.removeEventListener('pointercancel',finish);doc.body.style.cursor=oldCursor;doc.body.style.userSelect=oldSelect;const final=resizeState.current;resizeState.current=null;resizeCleanup.current=null;if(commit){setResizePreview(null);if(final&&final.moved)resizeColumn(final.index,final.width);}};
+  const move=event=>{if(!resizeState.current)return;const next=Math.round(clamp(startWidth+event.clientX-drag.startX,60,1000));drag.width=next;drag.moved=drag.moved||next!==Math.round(startWidth);setResizePreview({index:ci,width:next});};
+  const finish=()=>end(true);resizeCleanup.current=()=>end(false);win.addEventListener('pointermove',move);win.addEventListener('pointerup',finish);win.addEventListener('pointercancel',finish);
+ };
+ useEffect(()=>()=>{if(resizeCleanup.current)resizeCleanup.current();},[]);
  const hasFocusControls=!!onToggleFocus;
  return h('div',{className:'ntc-grid-wrap'+(hasFocusControls?' has-focus-controls':''),ref:scroller,onScroll:e=>setScrollTop(e.currentTarget.scrollTop),'aria-label':__('Spreadsheet data editor. Use arrow keys to move between cells, Enter to move down, and Tab to move forward.','native-tables-charts')},
-  h('div',{className:'ntc-grid-header'},h('div',{className:'ntc-grid-corner'+(hasFocusControls?' has-focus-controls':'')},hasFocusControls&&h('span',{className:'ntc-focus-column-head',title:__('Chart focus','native-tables-charts')},__('Focus','native-tables-charts')),h('span',{className:'ntc-row-number-head'},'#')),columns.map((c,ci)=>h('div',{className:'ntc-grid-colhead',key:ci},h('input',{value:c.label||'','aria-label':sprintf(__('Column %d name','native-tables-charts'),ci+1),title:__('Column name','native-tables-charts'),onFocus:e=>select(e,-1,ci),onClick:e=>select(e,-1,ci),onChange:e=>updateCol(ci,'label',e.target.value)}),columns.length>1&&h('button',{type:'button',className:'ntc-grid-delete-column',title:__('Delete column','native-tables-charts'),'aria-label':sprintf(__('Delete column %1$d: %2$s','native-tables-charts'),ci+1,c.label||sprintf(__('Column %d','native-tables-charts'),ci+1)),onClick:()=>onDeleteCol(ci)},h('span',{'aria-hidden':'true'},'×'))))),
-  h('div',{className:'ntc-grid-spacer',style:{height:(rows.length*rowH)+'px'}},Array.from({length:end-start},(_,k)=>{const ri=start+k;const row=rows[ri]||[];const isFocused=(focusValues||[]).includes(String(row[labelColumn]??''));const isHeading=!!(rowHeadings&&rowHeadings[ri]);return h('div',{className:'ntc-grid-row'+(isFocused?' is-chart-focus':'')+(isHeading?' is-row-heading':''),key:ri,style:{top:(ri*rowH)+'px'}},h('div',{className:'ntc-grid-rownum'+(hasFocusControls?' has-focus-controls':'')},hasFocusControls&&h('button',{type:'button',className:'ntc-focus-toggle'+(isFocused?' is-active':''),title:isFocused?__('Clear chart focus','native-tables-charts'):__('Set as chart focus','native-tables-charts'),'aria-label':isFocused?__('Clear chart focus for this row','native-tables-charts'):__('Set this row as chart focus','native-tables-charts'),'aria-pressed':isFocused?'true':'false',onClick:e=>{e.preventDefault();e.stopPropagation();onToggleFocus(ri);}},h('span',{className:'ntc-focus-glyph','aria-hidden':'true'},isFocused?'★':'☆')),isHeading&&h('span',{className:'ntc-row-heading-badge',title:__('Sub-heading row','native-tables-charts')},__('H','native-tables-charts')),h('span',{className:'ntc-row-number'},String(ri+1))),columns.map((c,ci)=>h('input',{'data-r':ri,'data-c':ci,key:ci,className:'ntc-grid-cell'+(inSelection(ri,ci)?' is-selected':''),'aria-label':sprintf(__('Row %1$d, %2$s','native-tables-charts'),ri+1,c.label||sprintf(__('Column %d','native-tables-charts'),ci+1)),value:row[ci]??'',onFocus:e=>{if(!selected||!inSelection(ri,ci))select(e,ri,ci);},onMouseDown:e=>select(e,ri,ci),onChange:e=>updateCell(ri,ci,e.target.value),onPaste:e=>onPaste(e,ri,ci),onKeyDown:e=>keyNav(e,ri,ci)})))}))
+  h('div',{className:'ntc-grid-header'},
+   h('div',{className:'ntc-grid-corner'+(hasFocusControls?' has-focus-controls':'')},hasFocusControls&&h('span',{className:'ntc-focus-column-head',title:__('Chart focus','native-tables-charts')},__('Focus','native-tables-charts')),h('span',{className:'ntc-row-number-head'},'#')),
+   columns.map((c,ci)=>h('div',{className:'ntc-grid-colhead'+(resizePreview&&resizePreview.index===ci?' is-resizing':''),key:ci,style:trackStyle(ci)},
+    h('input',{value:c.label||'','aria-label':sprintf(__('Column %d name','native-tables-charts'),ci+1),title:__('Column name','native-tables-charts'),onFocus:e=>select(e,-1,ci),onClick:e=>select(e,-1,ci),onChange:e=>updateCol(ci,'label',e.target.value)}),
+    columns.length>1&&h('button',{type:'button',className:'ntc-grid-delete-column',title:__('Delete column','native-tables-charts'),'aria-label':sprintf(__('Delete column %1$d: %2$s','native-tables-charts'),ci+1,c.label||sprintf(__('Column %d','native-tables-charts'),ci+1)),onClick:()=>onDeleteCol(ci)},h('span',{'aria-hidden':'true'},'×')),
+    onResizeColumn&&h('span',{className:'ntc-column-resize-handle',role:'separator',tabIndex:0,'data-resize-handle':ci,'aria-label':sprintf(__('Resize %s column','native-tables-charts'),c.label||sprintf(__('Column %d','native-tables-charts'),ci+1)),'aria-orientation':'vertical','aria-valuemin':60,'aria-valuemax':1000,'aria-valuenow':Math.round(trackWidth(ci)),'aria-valuetext':sprintf(__('%d pixels','native-tables-charts'),Math.round(trackWidth(ci))),title:__('Drag to resize. Arrow keys adjust by 10px; Shift adjusts by 50px.','native-tables-charts'),onPointerDown:e=>beginResize(e,ci),onKeyDown:e=>resizeKey(e,ci)})
+   ))
+  ),
+  h('div',{className:'ntc-grid-spacer',style:{height:(rows.length*rowH)+'px'}},Array.from({length:end-start},(_,k)=>{const ri=start+k;const row=rows[ri]||[];const isFocused=(focusValues||[]).includes(String(row[labelColumn]??''));const isHeading=!!(rowHeadings&&rowHeadings[ri]);return h('div',{className:'ntc-grid-row'+(isFocused?' is-chart-focus':'')+(isHeading?' is-row-heading':''),key:ri,style:{top:(ri*rowH)+'px'}},h('div',{className:'ntc-grid-rownum'+(hasFocusControls?' has-focus-controls':'')},hasFocusControls&&h('button',{type:'button',className:'ntc-focus-toggle'+(isFocused?' is-active':''),title:isFocused?__('Clear chart focus','native-tables-charts'):__('Set as chart focus','native-tables-charts'),'aria-label':isFocused?__('Clear chart focus for this row','native-tables-charts'):__('Set this row as chart focus','native-tables-charts'),'aria-pressed':isFocused?'true':'false',onClick:e=>{e.preventDefault();e.stopPropagation();onToggleFocus(ri);}},h('span',{className:'ntc-focus-glyph','aria-hidden':'true'},isFocused?'★':'☆')),isHeading&&h('span',{className:'ntc-row-heading-badge',title:__('Sub-heading row','native-tables-charts')},__('H','native-tables-charts')),h('span',{className:'ntc-row-number'},String(ri+1))),columns.map((c,ci)=>h('input',{'data-r':ri,'data-c':ci,key:ci,className:'ntc-grid-cell'+(inSelection(ri,ci)?' is-selected':''),style:trackStyle(ci),'aria-label':sprintf(__('Row %1$d, %2$s','native-tables-charts'),ri+1,c.label||sprintf(__('Column %d','native-tables-charts'),ci+1)),value:row[ci]??'',onFocus:e=>{if(!selected||!inSelection(ri,ci))select(e,ri,ci);},onMouseDown:e=>select(e,ri,ci),onChange:e=>updateCell(ri,ci,e.target.value),onPaste:e=>onPaste(e,ri,ci),onKeyDown:e=>keyNav(e,ri,ci)})))}))
  );
 }
 
@@ -601,7 +642,7 @@ function TableInspector({attributes,setAttributes,selected,customPresets}){
     h(TextControl,{label:__('Column label','native-tables-charts'),value:col.label||'',onChange:v=>updateCol('label',v)}),
     h(SelectControl,{label:__('Data type','native-tables-charts'),value:col.type||'auto',options:colTypes,onChange:v=>updateCol('type',v)}),
     h(TextControl,{label:__('Unit','native-tables-charts'),value:col.unit||'',onChange:v=>updateCol('unit',v)}),
-    h(TextControl,{label:__('Width (px or CSS length)','native-tables-charts'),value:String((config.columnWidths||{})[cidx]||''),onChange:v=>setConfig(Object.assign({},config,{columnWidths:Object.assign({},config.columnWidths||{},{[cidx]:v})}))}),
+    h(TextControl,{label:__('Column width','native-tables-charts'),help:__('Leave blank for automatic sizing. Use px, %, em, rem, vw, ch, or ex; numbers without a unit are pixels.','native-tables-charts'),placeholder:__('Automatic','native-tables-charts'),value:String((config.columnWidths||{})[cidx]||''),onChange:v=>setConfig(Object.assign({},config,{columnWidths:Object.assign({},config.columnWidths||{},{[cidx]:v})}))}),
     h(SelectControl,{label:__('Column alignment','native-tables-charts'),value:align,options:[{label:__('Default','native-tables-charts'),value:''},{label:__('Left','native-tables-charts'),value:'left'},{label:__('Center','native-tables-charts'),value:'center'},{label:__('Right','native-tables-charts'),value:'right'},{label:__('Justify','native-tables-charts'),value:'justify'}],onChange:v=>setConfig(Object.assign({},config,{columnAlign:Object.assign({},config.columnAlign||{},{[cidx]:v})}))}),
     h(ToggleControl,{label:__('Hide this column on phone','native-tables-charts'),checked:(config.hidePhone||[]).map(Number).includes(cidx),onChange:v=>hideToggle('hidePhone',v)}),
     h(ToggleControl,{label:__('Hide this column on tablet','native-tables-charts'),checked:(config.hideTablet||[]).map(Number).includes(cidx),onChange:v=>hideToggle('hideTablet',v)})
@@ -775,7 +816,7 @@ function DataEditor({attributes,setAttributes,type,isSelected}){
  const widthClass='ntc-width-'+widthMode+(widthMode==='wide'?' alignwide':widthMode==='full'?' alignfull':'');
  const blockProps=useBlockProps({className:'ntc-block-editor-root '+widthClass});
  const setWidthMode=v=>setAttributes({widthMode:v,align:''});
- const [selected,setSelected]=useState({r:0,c:0});const [importOpen,setImportOpen]=useState(false);const [exportOpen,setExportOpen]=useState(false);const [pickerOpen,setPickerOpen]=useState(false);const [loading,setLoading]=useState(false);const [status,setStatus]=useState('');const [customPresets,setCustomPresets]=useState([]);const [previewMode,setPreviewMode]=useState('desktop');const [editorMode,setEditorMode]=useState(type==='chart'?'preview':'data');const [focusOpen,setFocusOpen]=useState(false);const [styleOpen,setStyleOpen]=useState(false);const [cellPropertiesOpen,setCellPropertiesOpen]=useState(false);const [nameRequest,setNameRequest]=useState(null);
+ const [selected,setSelected]=useState({r:0,c:0});const [importOpen,setImportOpen]=useState(false);const [exportOpen,setExportOpen]=useState(false);const [pickerOpen,setPickerOpen]=useState(false);const [loading,setLoading]=useState(false);const [status,setStatus]=useState('');const [customPresets,setCustomPresets]=useState([]);const [previewMode,setPreviewMode]=useState('desktop');const [editorMode,setEditorMode]=useState(type==='chart'?'preview':'data');const [focusOpen,setFocusOpen]=useState(false);const [styleOpen,setStyleOpen]=useState(false);const [widthsOpen,setWidthsOpen]=useState(false);const [cellPropertiesOpen,setCellPropertiesOpen]=useState(false);const [nameRequest,setNameRequest]=useState(null);
  const dirtyRows=useRef(new Set());const saveTimer=useRef(null);const viewTimer=useRef(null);const latestRows=useRef(rows);const needsReplace=useRef(false);const loadingRemote=useRef(false);const skipRemoteLoad=useRef('');const nameResolver=useRef(null);
  const requestName=options=>new Promise(resolve=>{nameResolver.current=resolve;setNameRequest(options);});
  const resolveName=value=>{if(nameResolver.current)nameResolver.current(value);nameResolver.current=null;setNameRequest(null);};
@@ -824,6 +865,7 @@ function DataEditor({attributes,setAttributes,type,isSelected}){
  };
 	 const setRows=(next,ri,structural=false)=>{latestRows.current=next;if(shared)setSharedRows(next);else setAttributes({rows:next});scheduleSave(ri,structural);};
  const setColumns=next=>{setAttributes({columns:next});if(attributes.datasetId&&attributes.mode!=='inline'){setStatus(__('Saving columns…','native-tables-charts'));apiFetch({path:'/ntc/v1/datasets/'+attributes.datasetId,method:'PUT',data:{columns:next}}).then(()=>{invalidateReusableCache(attributes.datasetId);setStatus(__('Dataset saved','native-tables-charts'));}).catch(()=>setStatus(__('Column save failed','native-tables-charts')));}};
+ const resizeColumn=(ci,width)=>{const cfg=Object.assign({},attributes.config||{});cfg.columnWidths=Object.assign({},cfg.columnWidths||{},{[ci]:Math.round(clamp(width,60,1000))+'px'});cfg.tableLayout='fixed';setAttributes({config:cfg});};
 
  const saveViewNow=()=>{
    if(!attributes.viewId||loadingRemote.current)return Promise.resolve();
@@ -940,6 +982,7 @@ function DataEditor({attributes,setAttributes,type,isSelected}){
      isFocus&&h(Button,{variant:'primary',icon:'yes',onClick:()=>setFocusOpen(false)},__('Done','native-tables-charts')),
      h(Button,{variant:'secondary',onClick:addRow,disabled:rows.length>=10000},__('Add row','native-tables-charts')),
      h(Button,{variant:'secondary',onClick:addCol,disabled:columns.length>=40},__('Add column','native-tables-charts')),
+     type==='table'&&h(Button,{variant:'secondary',icon:'columns',onClick:()=>setWidthsOpen(true)},__('Column widths','native-tables-charts')),
      h(Button,{variant:'secondary',icon:'upload',onClick:()=>setImportOpen(true)},__('Paste / Import','native-tables-charts')),
      h(MoreMenu),
      !isFocus&&h(Button,{variant:'tertiary',icon:'fullscreen-alt',onClick:()=>setFocusOpen(true)},__('Focus mode','native-tables-charts')),
@@ -948,7 +991,7 @@ function DataEditor({attributes,setAttributes,type,isSelected}){
    attributes.mode!=='inline'&&h(Notice,{status:'info',isDismissible:false,className:'ntc-shared-data-notice'},attributes.viewId?__('This chart/table uses a synced view. Data edits can affect every visualization using the shared dataset.','native-tables-charts'):__('This chart/table uses a reusable dataset. Data edits can affect every visualization using it.','native-tables-charts')),
    renderSelectionActions(),
    h('div',{className:'ntc-editor-shell'+(isFocus?' is-focus':'')},
-     loading?h('div',{className:'ntc-editor-empty'},h(Spinner)):h(VirtualGrid,{columns,rows,onColumns:setColumns,onRows:(next,ri)=>setRows(next,ri,false),selected,onSelect:sel=>setSelected(prev=>{if(sel.r<0)return {r:-1,c:sel.c,r2:-1,c2:sel.c};if(sel.shift&&prev&&prev.r>=0)return {r:prev.r,c:prev.c,r2:sel.r,c2:sel.c};return {r:sel.r,c:sel.c,r2:sel.r,c2:sel.c};}),onDeleteRow:deleteRowAt,onDeleteCol:deleteColAt,focusValues:type==='chart'?focusValues:null,onToggleFocus:type==='chart'?toggleRowFocus:null,onFocusLabelChange:type==='chart'?updateFocusLabel:null,labelColumn,allowMultipleFocus,rowHeadings:type==='table'?rowHeadings:null}),
+     loading?h('div',{className:'ntc-editor-empty'},h(Spinner)):h(VirtualGrid,{columns,rows,onColumns:setColumns,onRows:(next,ri)=>setRows(next,ri,false),selected,onSelect:sel=>setSelected(prev=>{if(sel.r<0)return {r:-1,c:sel.c,r2:-1,c2:sel.c};if(sel.shift&&prev&&prev.r>=0)return {r:prev.r,c:prev.c,r2:sel.r,c2:sel.c};return {r:sel.r,c:sel.c,r2:sel.r,c2:sel.c};}),onDeleteRow:deleteRowAt,onDeleteCol:deleteColAt,focusValues:type==='chart'?focusValues:null,onToggleFocus:type==='chart'?toggleRowFocus:null,onFocusLabelChange:type==='chart'?updateFocusLabel:null,labelColumn,allowMultipleFocus,rowHeadings:type==='table'?rowHeadings:null,columnWidths:type==='table'?(attributes.config||{}).columnWidths:null,onResizeColumn:type==='table'?resizeColumn:null}),
       type==='table'&&cellPropertiesOpen&&h(CellProperties,{selected,cellMeta:attributes.cellMeta||{},setCellMeta:v=>setAttributes({cellMeta:v})})
    ),
    rows.length>(CFG.maxInlineRows||250)&&attributes.mode==='inline'&&h('div',{className:'ntc-large-note'},__('This inline dataset is large. Save it as a reusable dataset for better post-editor performance.','native-tables-charts'))
@@ -986,6 +1029,7 @@ function DataEditor({attributes,setAttributes,type,isSelected}){
    h('div',blockProps,workspace),
    focusOpen&&h(Modal,{title:(type==='chart'?(chartConfig.title||__('Chart','native-tables-charts')):__('Table','native-tables-charts'))+' — '+__('Data','native-tables-charts'),onRequestClose:()=>setFocusOpen(false),className:'ntc-focus-modal'},renderDataWorkspace(true)),
    styleOpen&&h(QuickStyleModal,{type,attributes,setAttributes,customPresets,onClose:()=>setStyleOpen(false)}),
+   widthsOpen&&type==='table'&&h(ColumnWidthsModal,{columns,attributes,setAttributes,onClose:()=>setWidthsOpen(false)}),
    importOpen&&h(DataImportModal,{onClose:()=>setImportOpen(false),onImport:importData}),
    exportOpen&&h(ExportModal,{columns,rows,type,onClose:()=>setExportOpen(false)}),
    pickerOpen&&h(DatasetPicker,{type,onClose:()=>setPickerOpen(false),onPick:pickExisting}),
